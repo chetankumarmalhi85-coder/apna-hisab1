@@ -34,7 +34,7 @@ export const exportToCSV = (transactions: Transaction[]) => {
   
   // Map data to CSV rows
   const rows = transactions.map(t => {
-    const categoryLabel = CATEGORIES.find(c => c.id === t.category)?.label || t.category;
+    const categoryLabel = CATEGORIES.find(c => c.id === t.category)?.label.EN || t.category;
     return [
       new Date(t.date).toLocaleDateString() + ' ' + new Date(t.date).toLocaleTimeString(),
       t.type,
@@ -86,16 +86,16 @@ export const exportToPDF = (transactions: Transaction[], dateRangeLabel: string 
 
   doc.text(`Total Income: ${income.toLocaleString()}`, 100, 50);
   doc.text(`Total Expense: ${expense.toLocaleString()}`, 100, 55);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.text(`Net Balance: ${balance.toLocaleString()}`, 100, 60);
-  doc.setFont(undefined, 'normal');
+  doc.setFont('helvetica', 'normal');
 
   // Table
   const tableColumn = ["Date", "Type", "Category", "Desc", "Amount"];
   const tableRows = transactions.map(t => [
     new Date(t.date).toLocaleDateString(),
     t.type,
-    CATEGORIES.find(c => c.id === t.category)?.label || t.category,
+    CATEGORIES.find(c => c.id === t.category)?.label.EN || t.category,
     t.description,
     `${t.type === 'EXPENSE' ? '-' : '+'} ${t.amount.toLocaleString()}`
   ]);

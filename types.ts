@@ -46,5 +46,9 @@ export interface ParsedExpense {
 declare global {
   interface Window {
     webkitSpeechRecognition: any;
+    aistudio?: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
   }
 }
