@@ -1,0 +1,8 @@
+{
+  "name": "Apna Hisab",
+  "description": "A privacy-first, offline-ready expense tracker designed for Pakistan. Features voice entry and smart text parsing.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": []
+}

@@ -1,0 +1,25 @@
+
+{
+  "short_name": "ApnaHisab",
+  "name": "Apna Hisab: AI Finance Tracker",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2344/2344132.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2344/2344132.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#15803d",
+  "background_color": "#ffffff",
+  "orientation": "portrait",
+  "description": "Smart AI-powered expense tracking for Pakistan."
+}
