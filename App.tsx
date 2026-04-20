@@ -5,7 +5,7 @@ import AddTransactionModal from './components/AddTransactionModal';
 import DashboardStats from './components/DashboardStats';
 import InsightsView from './components/InsightsView';
 import SettingsView from './components/SettingsView';
-import { getTransactions, saveTransaction, deleteTransaction } from './services/storageService';
+import { getTransactions, saveTransaction, saveTransactions, deleteTransaction } from './services/storageService';
 import { Transaction, Language } from './types';
 import { TRANSLATIONS } from './constants';
 
@@ -156,6 +156,11 @@ const App: React.FC = () => {
 
   const handleSaveTransaction = (t: Transaction) => {
     const updated = saveTransaction(t);
+    setTransactions(updated);
+  };
+
+  const handleSaveTransactions = (newTransactions: Transaction[]) => {
+    const updated = saveTransactions(newTransactions);
     setTransactions(updated);
   };
 
@@ -359,6 +364,7 @@ const App: React.FC = () => {
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
         onSave={handleSaveTransaction}
+        onSaveMultiple={handleSaveTransactions}
         hasApiKey={hasApiKey}
         userApiKey={userApiKey}
         requestApiKey={handleApiKeySetup}

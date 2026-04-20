@@ -2,7 +2,7 @@
 import React from 'react';
 import { Transaction, Language } from '../types';
 import { CATEGORIES, CURRENCY_SYMBOL, TRANSLATIONS } from '../constants';
-import { Trash2, Mic, MessageSquare, Keyboard } from 'lucide-react';
+import { Trash2, Mic, MessageSquare, Keyboard, Image } from 'lucide-react';
 
 interface Props {
   transactions: Transaction[];
@@ -32,6 +32,7 @@ const TransactionList: React.FC<Props> = ({ transactions, onDelete, lang }) => {
     switch (source) {
       case 'VOICE': return <Mic size={12} className="text-blue-500 mr-1" />;
       case 'AUTO_SMS': return <MessageSquare size={12} className="text-purple-500 mr-1" />;
+      case 'SCREENSHOT': return <Image size={12} className="text-teal-500 mr-1" />;
       default: return <Keyboard size={12} className="text-gray-400 mr-1" />;
     }
   };

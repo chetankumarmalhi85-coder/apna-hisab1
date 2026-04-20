@@ -24,6 +24,13 @@ export const deleteTransaction = (id: string): Transaction[] => {
   return updated;
 };
 
+export const saveTransactions = (transactions: Transaction[]): Transaction[] => {
+  const existing = getTransactions();
+  const updated = [...transactions, ...existing];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  return updated;
+};
+
 export const clearAllData = () => {
   localStorage.removeItem(STORAGE_KEY);
 };

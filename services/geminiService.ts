@@ -63,3 +63,63 @@ export const parseExpenseText = async (text: string, customApiKey?: string): Pro
     return null;
   }
 };
+
+export const parseBulkExpenseText = async (text: string, customApiKey?: string): Promise<ParsedExpense[]> => {
+  const apiKey = customApiKey || process.env.API_KEY;
+
+  if (!apiKey) {
+    console.error("Gemini AI not initialized. Missing API Key.");
+    return [];
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  try {
+    const prompt = `
+      You are a smart finance parser for Pakistani bank or microfinance screenshots.
+      The input is OCR text from a screenshot containing one or more transaction lines.
+      Extract each individual transaction and return a JSON array of objects.
+      Each object must include:
+      - amount (PKR number)
+      - type (EXPENSE or INCOME)
+      - category (one of Food, Transport, Bills, Shopping, Health, Education, Entertainment, Salary, Business, Transfer, Other)
+      - description (short human-readable description)
+      - bankName if available
+      Only include real transaction entries. Do not wrap the result in extra text.
+
+      Input text:
+      "${text}"
+    `;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              amount: { type: Type.NUMBER },
+              type: { type: Type.STRING, enum: ["EXPENSE", "INCOME"] },
+              category: { type: Type.STRING },
+              description: { type: Type.STRING },
+              bankName: { type: Type.STRING },
+            },
+            required: ["amount", "type", "category", "description"],
+          },
+        },
+      },
+    });
+
+    const result = JSON.parse(response.text || '[]');
+    if (Array.isArray(result)) {
+      return result as ParsedExpense[];
+    }
+    return [];
+  } catch (error) {
+    console.error("Error parsing bulk expense text with Gemini:", error);
+    return [];
+  }
+};

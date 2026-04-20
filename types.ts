@@ -23,7 +23,7 @@ export interface Transaction {
   category: Category;
   description: string;
   date: number; // Unix timestamp
-  source: 'MANUAL' | 'VOICE' | 'AUTO_SMS';
+  source: 'MANUAL' | 'VOICE' | 'AUTO_SMS' | 'SCREENSHOT';
   bankName?: string; // e.g., 'SadaPay', 'JazzCash'
 }
 
