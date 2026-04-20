@@ -1,22 +1,24 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Mic, X, Check, Keyboard, Smartphone, MessageSquareText, Loader2, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import { Mic, X, Check, Keyboard, Smartphone, MessageSquareText, Loader2, ArrowDownLeft, ArrowUpRight, Image } from 'lucide-react';
+import Tesseract from 'tesseract.js';
 import { CATEGORIES, MOCK_SMS_TEMPLATES, TRANSLATIONS } from '../constants';
 import { Transaction, Category, ParsedExpense, TransactionType, Language } from '../types';
 import { v4 as uuidv4 } from 'uuid';
-import { parseExpenseText } from '../services/geminiService';
+import { parseExpenseText, parseBulkExpenseText } from '../services/geminiService';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSave: (t: Transaction) => void;
+  onSaveMultiple: (transactions: Transaction[]) => void;
   hasApiKey: boolean;
   userApiKey?: string;
   requestApiKey: () => void;
   lang: Language;
 }
 
-type InputMode = 'MANUAL' | 'VOICE' | 'AUTO';
+type InputMode = 'MANUAL' | 'VOICE' | 'AUTO' | 'SCREENSHOT';
 
 const AddTransactionModal: React.FC<Props> = ({ isOpen, onClose, onSave, hasApiKey, userApiKey, requestApiKey, lang }) => {
   const [mode, setMode] = useState<InputMode>('MANUAL');
@@ -27,7 +29,12 @@ const AddTransactionModal: React.FC<Props> = ({ isOpen, onClose, onSave, hasApiK
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [smsText, setSmsText] = useState('');
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState('');
+  const [ocrText, setOcrText] = useState('');
+  const [screenshotResults, setScreenshotResults] = useState<ParsedExpense[]>([]);
   const [parseError, setParseError] = useState('');
+  const [screenshotError, setScreenshotError] = useState('');
 
   const t = TRANSLATIONS[lang];
 
@@ -129,6 +136,83 @@ const AddTransactionModal: React.FC<Props> = ({ isOpen, onClose, onSave, hasApiK
     recognition.start();
   }, [hasApiKey, requestApiKey, lang, userApiKey]);
 
+  const handleScreenshotUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setScreenshotFile(file);
+    setScreenshotPreview(URL.createObjectURL(file));
+    setOcrText('');
+    setScreenshotResults([]);
+    setScreenshotError('');
+    setParseError('');
+
+    setIsProcessing(true);
+    try {
+      const { data } = await Tesseract.recognize(file, 'eng');
+      setOcrText(data.text || '');
+    } catch (error) {
+      console.error('OCR failed', error);
+      setScreenshotError('OCR failed. Try a clearer screenshot.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleParseScreenshot = async () => {
+    if (!screenshotFile) {
+      setScreenshotError('Please upload a screenshot first.');
+      return;
+    }
+
+    if (!hasApiKey) {
+      requestApiKey();
+      return;
+    }
+
+    setIsProcessing(true);
+    setScreenshotError('');
+    setParseError('');
+
+    try {
+      const textToParse = ocrText.trim();
+      if (!textToParse) {
+        setScreenshotError('No text found in screenshot. Try a clearer image.');
+        return;
+      }
+
+      const parsed = await parseBulkExpenseText(textToParse, userApiKey);
+      if (!parsed || parsed.length === 0) {
+        setScreenshotError('Could not detect any transactions from this screenshot.');
+        return;
+      }
+
+      setScreenshotResults(parsed);
+    } catch (error) {
+      console.error('Screenshot parse failed', error);
+      setScreenshotError('Failed to parse the screenshot. Try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSaveScreenshotResults = () => {
+    if (!screenshotResults.length) return;
+
+    const newTransactions = screenshotResults.map((item) => ({
+      id: uuidv4(),
+      amount: item.amount,
+      type: item.type,
+      category: item.category,
+      description: item.description,
+      date: Date.now(),
+      source: 'SCREENSHOT',
+      bankName: item.bankName,
+    }));
+
+    onSaveMultiple(newTransactions);
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -167,6 +251,12 @@ const AddTransactionModal: React.FC<Props> = ({ isOpen, onClose, onSave, hasApiK
             className={`flex-1 py-2 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-all ${mode === 'AUTO' ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-500'}`}
           >
             <MessageSquareText size={16} /> {t.sms}
+          </button>
+          <button 
+            onClick={() => setMode('SCREENSHOT')}
+            className={`flex-1 py-2 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-all ${mode === 'SCREENSHOT' ? 'bg-white text-teal-600 shadow-sm' : 'text-gray-500'}`}
+          >
+            <Image size={16} /> {t.uploadScreenshot}
           </button>
         </div>
 
@@ -314,6 +404,84 @@ const AddTransactionModal: React.FC<Props> = ({ isOpen, onClose, onSave, hasApiK
                     ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {mode === 'SCREENSHOT' && (
+            <div className="space-y-4">
+              <div className="bg-teal-50 p-3 rounded-lg border border-teal-100">
+                <p className="text-xs text-teal-700 font-medium mb-2 flex items-center gap-1">
+                  <Image size={12} /> {t.uploadScreenshot}
+                </p>
+                <p className="text-xs text-gray-600">{t.uploadScreenshotDesc}</p>
+              </div>
+
+              <label htmlFor="screenshot-input" className="w-full cursor-pointer rounded-2xl border border-dashed border-teal-300 bg-white py-5 text-center text-sm text-teal-700 hover:bg-teal-50 transition">
+                {screenshotFile ? 'Change Screenshot' : 'Choose Screenshot'}
+              </label>
+              <input
+                id="screenshot-input"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleScreenshotUpload}
+              />
+
+              {screenshotPreview && (
+                <img src={screenshotPreview} alt="Screenshot preview" className="w-full rounded-2xl border border-gray-200" />
+              )}
+
+              {ocrText && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">OCR Preview</p>
+                  <textarea
+                    value={ocrText}
+                    readOnly
+                    className="w-full min-h-[120px] p-3 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-700 resize-none"
+                  />
+                </div>
+              )}
+
+              {screenshotError && <p className="text-sm text-red-600 bg-red-50 rounded-xl p-3">{screenshotError}</p>}
+              {parseError && <p className="text-sm text-red-600 bg-red-50 rounded-xl p-3">{parseError}</p>}
+
+              {!hasApiKey && (
+                <button onClick={requestApiKey} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-200">Set Up API Key</button>
+              )}
+
+              <button
+                onClick={handleParseScreenshot}
+                disabled={!screenshotFile || isProcessing || !hasApiKey}
+                className="w-full py-3 bg-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-200 hover:bg-teal-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isProcessing ? <Loader2 className="animate-spin" size={18} /> : t.parseScreenshot}
+              </button>
+
+              {screenshotResults.length > 0 && (
+                <div className="space-y-3">
+                  <div className="bg-white rounded-2xl border border-teal-100 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-bold text-gray-800">Parsed Transactions</p>
+                      <span className="text-xs text-gray-400">{screenshotResults.length} items</span>
+                    </div>
+                    <div className="space-y-2">
+                      {screenshotResults.map((item, index) => (
+                        <div key={index} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
+                          <p className="font-semibold text-gray-800 text-sm">{item.description}</p>
+                          <p className="text-xs text-gray-500">{item.category} • {item.type} • Rs. {item.amount.toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleSaveScreenshotResults}
+                    className="w-full py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg shadow-green-200 hover:bg-green-700 transition"
+                  >
+                    Save All Transactions
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
